@@ -38,7 +38,7 @@ This library is based on:
 ## Installation
 
 ```bash
-go get github.com/horan/goLMUSharedMemory
+go get github.com/stephenhoran/goLMUSharedMemory
 ```
 
 ## Quick Start
@@ -48,7 +48,7 @@ package main
 
 import (
     "fmt"
-    "github.com/horan/goLMUSharedMemory"
+    "github.com/stephenhoran/goLMUSharedMemory"
 )
 
 func main() {
@@ -115,7 +115,7 @@ package main
 
 import (
     "fmt"
-    "github.com/horan/goLMUSharedMemory"
+    "github.com/stephenhoran/goLMUSharedMemory"
 )
 
 func main() {
@@ -170,7 +170,7 @@ package main
 import (
     "fmt"
     "sort"
-    "github.com/horan/goLMUSharedMemory"
+    "github.com/stephenhoran/goLMUSharedMemory"
 )
 
 func main() {
@@ -218,7 +218,7 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/horan/goLMUSharedMemory"
+    "github.com/stephenhoran/goLMUSharedMemory"
 )
 
 func main() {
