@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+	"os"
 )
 
 var (
@@ -187,3 +188,17 @@ func (sm *SharedMemory) GetRawData() ([]byte, error) {
 	return sm.data, nil
 }
 
+// SaveToFile writes the raw shared memory data to a file specified by filename
+// Useful for debugging and visual inspection of the data
+func (sm *SharedMemory) SaveToFile(filename string) error {
+	if sm.closed {
+		return fmt.Errorf("shared memory is closed")
+	}
+
+	data, err := sm.GetRawData()
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filename, data, 0644)
+}
