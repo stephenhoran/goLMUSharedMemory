@@ -167,7 +167,8 @@ func (sm *SharedMemory) ReadData() (*SharedMemoryLayout, error) {
 		return nil, fmt.Errorf("shared memory is closed")
 	}
 
-	if len(sm.data) < int(unsafe.Sizeof(SharedMemoryLayout{})) {
+	// Validate shared memory data size against the expected struct size
+	if len(sm.data) < (&SharedMemoryLayout{}).Size() {
 		return nil, fmt.Errorf("shared memory data is too small")
 	}
 
@@ -178,7 +179,11 @@ func (sm *SharedMemory) ReadData() (*SharedMemoryLayout, error) {
 
 // GetRawData returns the raw byte slice of the shared memory
 // This is useful for debugging or custom parsing
-func (sm *SharedMemory) GetRawData() []byte {
-	return sm.data
+func (sm *SharedMemory) GetRawData() ([]byte, error) {
+	if sm.closed {
+		return nil, fmt.Errorf("shared memory is closed")
+	}
+
+	return sm.data, nil
 }
 
