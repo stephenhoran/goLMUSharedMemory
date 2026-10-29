@@ -3,6 +3,7 @@ package goLMUSharedMemory
 import (
 	"fmt"
 	"strings"
+	"unsafe"
 )
 
 // CStringToString converts a C-style null-terminated byte array to a Go string
@@ -13,6 +14,22 @@ func CStringToString(bytes []byte) string {
 		}
 	}
 	return string(bytes)
+}
+
+// CDoubleToFloat64 converts a C-style double (8 bytes) to a Go float64
+func CDoubleToFloat64(bytes []byte) float64 {
+	if len(bytes) < 8 {
+		return 0
+	}
+	return *(*float64)(unsafe.Pointer(&bytes[0]))
+}
+
+// CLongLongToUint64 converts a C-style long long (8 bytes) to a Go uint64
+func CLongLongToUint64(bytes []byte) uint64 {
+	if len(bytes) < 8 {
+		return 0
+	}
+	return *(*uint64)(unsafe.Pointer(&bytes[0]))
 }
 
 // GetTireCompoundName returns a human-readable tire compound name from the raw name bytes and index

@@ -40,56 +40,100 @@ const (
 	SME_MAX
 )
 
+// Custom types to represent fields that can not use native Go types
+// directly due to the shared memory pack(4) alignment
+type (
+	CDouble   [8]byte
+	CUintPtr  [8]byte
+	CLongLong [8]byte
+)
+
 // TelemVect3 represents a 3D vector (double precision)
 type TelemVect3 struct {
-	X float64
-	Y float64
-	Z float64
+	X CDouble
+	Y CDouble
+	Z CDouble
 }
 
+// IPVehicleClass represents the class of a vehicle in LMU
+type IPVehicleClass uint8
+
+const (
+	Hypercar     IPVehicleClass = 0x00
+	LMP2_ELMS    IPVehicleClass = 0x02
+	LMP2         IPVehicleClass = 0x03
+	LMP3         IPVehicleClass = 0x04
+	GTE          IPVehicleClass = 0x05
+	GT3          IPVehicleClass = 0x06
+	PaceCar      IPVehicleClass = 0x08
+	UnknownClass IPVehicleClass = 0xFF
+)
+
+// IPVehicleChampionship represents the championship of a vehicle in LMU
+type IPVehicleChampionship uint8
+
+const (
+	WEC_2023            IPVehicleChampionship = 0x00
+	WEC_2024            IPVehicleChampionship = 0x01
+	WEC_2025            IPVehicleChampionship = 0x02
+	WEC_2026            IPVehicleChampionship = 0x03
+	ELMS_2025           IPVehicleChampionship = 0x10
+	ELMS_2026           IPVehicleChampionship = 0x11
+	UnknownChampionship IPVehicleChampionship = 0xFF
+)
+
+const (
+	LMU_MAX_VEHICLES = 104
+)
+
 // TelemWheelV01 contains telemetry data for a single wheel
-// Size: 8 + 8*20 + 16 + 1 + 1 + 1 + 8 + 8 + 8 + 8*3 + 8 + 24 = approximately 248 bytes
+// This matches the C++ struct TelemWheelV01 from InternalsPlugin.hpp
+// Size: 260 bytes
 type TelemWheelV01 struct {
-	MSuspensionDeflection   float64
-	MRideHeight             float64
-	MSuspForce              float64
-	MBrakeTemp              float64
-	MBrakePressure          float64
-	MRotation               float64
-	MLateralPatchVel        float64
-	MLongitudinalPatchVel   float64
-	MLateralGroundVel       float64
-	MLongitudinalGroundVel  float64
-	MCamber                 float64
-	MLateralForce           float64
-	MLongitudinalForce      float64
-	MTireLoad               float64
-	MGripFract              float64
-	MPressure               float64
-	MTemperature            [3]float64 // left/center/right in Kelvin
-	MWear                   float64
+	MSuspensionDeflection   CDouble
+	MRideHeight             CDouble
+	MSuspForce              CDouble
+	MBrakeTemp              CDouble
+	MBrakePressure          CDouble
+	MRotation               CDouble
+	MLateralPatchVel        CDouble
+	MLongitudinalPatchVel   CDouble
+	MLateralGroundVel       CDouble
+	MLongitudinalGroundVel  CDouble
+	MCamber                 CDouble
+	MLateralForce           CDouble
+	MLongitudinalForce      CDouble
+	MTireLoad               CDouble
+	MGripFract              CDouble
+	MPressure               CDouble
+	MTemperature            [3]CDouble // left/center/right in Kelvin
+	MWear                   CDouble
 	MTerrainName            [16]byte
 	MSurfaceType            uint8  // 0=dry, 1=wet, 2=grass, 3=dirt, 4=gravel, 5=rumblestrip, 6=special
 	MFlat                   bool   // whether tire is flat
 	MDetached               bool   // whether wheel is detached
 	MStaticUndeflectedRadius uint8 // tire radius in centimeters
-	MVerticalTireDeflection  float64
-	MWheelYLocation          float64
-	MToe                    float64
-	MTireCarcassTemperature  float64
-	MTireInnerLayerTemperature [3]float64
-	MExpansion              [24]uint8
+	MVerticalTireDeflection  CDouble
+	MWheelYLocation          CDouble
+	MToe                    CDouble
+	MTireCarcassTemperature  CDouble
+	MTireInnerLayerTemperature [3]CDouble
+	MOptimalTemp            float32
+	MCompoundIndex          uint8
+	MCompoundType           uint8
+	MExpansion              [18]uint8
 }
 
 // TelemInfoV01 is the main telemetry structure for a vehicle
 // This matches the C++ struct TelemInfoV01 from InternalsPlugin.hpp
+// Size: 1888 bytes
 type TelemInfoV01 struct {
 	// Time
 	MID           int32
-	MDeltaTime    float64
-	MElapsedTime  float64
+	MDeltaTime    CDouble
+	MElapsedTime  CDouble
 	MLapNumber    int32
-	MLapStartET   float64
+	MLapStartET   CDouble
 	MVehicleName  [64]byte
 	MTrackName    [64]byte
 
@@ -105,56 +149,56 @@ type TelemInfoV01 struct {
 
 	// Vehicle status
 	MGear          int32
-	MEngineRPM     float64
-	MEngineWaterTemp float64
-	MEngineOilTemp float64
-	MClutchRPM     float64
+	MEngineRPM     CDouble
+	MEngineWaterTemp CDouble
+	MEngineOilTemp CDouble
+	MClutchRPM     CDouble
 
 	// Driver input
-	MUnfilteredThrottle float64
-	MUnfilteredBrake    float64
-	MUnfilteredSteering float64
-	MUnfilteredClutch   float64
+	MUnfilteredThrottle CDouble
+	MUnfilteredBrake    CDouble
+	MUnfilteredSteering CDouble
+	MUnfilteredClutch   CDouble
 
 	// Filtered input
-	MFilteredThrottle float64
-	MFilteredBrake    float64
-	MFilteredSteering float64
-	MFilteredClutch   float64
+	MFilteredThrottle CDouble
+	MFilteredBrake    CDouble
+	MFilteredSteering CDouble
+	MFilteredClutch   CDouble
 
 	// Misc
-	MSteeringShaftTorque float64
-	MFront3rdDeflection  float64
-	MRear3rdDeflection   float64
+	MSteeringShaftTorque CDouble
+	MFront3rdDeflection  CDouble
+	MRear3rdDeflection   CDouble
 
 	// Aerodynamics
-	MFrontWingHeight float64
-	MFrontRideHeight float64
-	MRearRideHeight  float64
-	MDrag            float64
-	MFrontDownforce  float64
-	MRearDownforce   float64
+	MFrontWingHeight CDouble
+	MFrontRideHeight CDouble
+	MRearRideHeight  CDouble
+	MDrag            CDouble
+	MFrontDownforce  CDouble
+	MRearDownforce   CDouble
 
 	// State/damage info
-	MFuel            float64
-	MEngineMaxRPM    float64
+	MFuel            CDouble
+	MEngineMaxRPM    CDouble
 	MScheduledStops  uint8
 	MOverheating     bool
 	MDetached        bool
 	MHeadlights      bool
 	MDentSeverity    [8]uint8
-	MLastImpactET    float64
-	MLastImpactMagnitude float64
+	MLastImpactET    CDouble
+	MLastImpactMagnitude CDouble
 	MLastImpactPos   TelemVect3
 
 	// Expanded
-	MEngineTorque    float64
+	MEngineTorque    CDouble
 	MCurrentSector   int32
 	MSpeedLimiter    uint8
 	MMaxGears        uint8
 	MFrontTireCompoundIndex uint8
 	MRearTireCompoundIndex  uint8
-	MFuelCapacity    float64
+	MFuelCapacity    CDouble
 	MFrontFlapActivated uint8
 	MRearFlapActivated  uint8
 	MRearFlapLegalStatus uint8
@@ -165,24 +209,59 @@ type TelemInfoV01 struct {
 	MAntiStallActivated    uint8
 	MUnused                [2]uint8
 	MVisualSteeringWheelRange float32
-	MRearBrakeBias          float64
-	MTurboBoostPressure     float64
+	MRearBrakeBias          CDouble
+	MTurboBoostPressure     CDouble
 	MPhysicsToGraphicsOffset [3]float32
 	MPhysicalSteeringWheelRange float32
-	MDeltaBest               float64
-	MBatteryChargeFraction   float64
-	MElectricBoostMotorTorque float64
-	MElectricBoostMotorRPM     float64
-	MElectricBoostMotorTemperature float64
-	MElectricBoostWaterTemperature float64
+	MDeltaBest               CDouble
+	MBatteryChargeFraction   CDouble
+	MElectricBoostMotorTorque CDouble
+	MElectricBoostMotorRPM     CDouble
+	MElectricBoostMotorTemperature CDouble
+	MElectricBoostWaterTemperature CDouble
 	MElectricBoostMotorState  uint8
-	MExpansion               [103]uint8 // 111-8 = 103
+	MLapInvalidated           bool
+	MABSActive                bool
+	MTCActive                 bool
+	MSpeedLimiterActive       bool
+	MWiperState               uint8
+	MTC                       uint8
+	MTCMax                    uint8
+	MTCSlip                   uint8
+	MTCSlipMax                uint8
+	MTCCut                    uint8
+	MTCCutMax				  uint8
+	MABS                      uint8
+	MABSMax                   uint8
+	MMotorMap                 uint8
+	MMotorMapMax              uint8
+	MMigration                uint8
+	MMigrationMax             uint8
+	MFrontAntiSway            uint8
+	MFrontAntiSwayMax         uint8
+	MRearAntiSway             uint8
+	MRearAntiSwayMax          uint8
+	MLiftAndCoastProgress     uint8
+	MTrackLimitsSteps         uint8
+	MRegen                    float32
+	MStateOfCharge            float32
+	MVirtualEnergy            float32
+	MTimeGapCarAhead          float32
+	MTimeGapCarBehind         float32
+	MTimeGapPlaceAhead        float32
+	MTimeGapPlaceBehind       float32
+	MVehicleModel             [30]byte
+	MVehicleClass             IPVehicleClass
+	MVehicleChampionship      IPVehicleChampionship
+	MExpansion               [20]uint8
 
 	// Wheels (front left, front right, rear left, rear right)
 	MWheel [4]TelemWheelV01
 }
 
 // VehicleScoringInfoV01 contains scoring information for a vehicle
+// This matches the C++ struct VehicleScoringInfoV01 from InternalsPlugin.hpp
+// Size: 584 bytes
 type VehicleScoringInfoV01 struct {
 	MID               int32
 	MDriverName       [32]byte
@@ -190,17 +269,17 @@ type VehicleScoringInfoV01 struct {
 	MTotalLaps        int16
 	MSector           int8
 	MFinishStatus     int8
-	MLapDist          float64
-	MPathLateral      float64
-	MTrackEdge        float64
-	MBestSector1      float64
-	MBestSector2      float64
-	MBestLapTime      float64
-	MLastSector1      float64
-	MLastSector2      float64
-	MLastLapTime      float64
-	MCurSector1       float64
-	MCurSector2       float64
+	MLapDist          CDouble
+	MPathLateral      CDouble
+	MTrackEdge        CDouble
+	MBestSector1      CDouble
+	MBestSector2      CDouble
+	MBestLapTime      CDouble
+	MLastSector1      CDouble
+	MLastSector2      CDouble
+	MLastLapTime      CDouble
+	MCurSector1       CDouble
+	MCurSector2       CDouble
 	MNumPitstops      int16
 	MNumPenalties     int16
 	MIsPlayer         bool
@@ -208,11 +287,11 @@ type VehicleScoringInfoV01 struct {
 	MInPits           bool
 	MPlace            uint8
 	MVehicleClass     [32]byte
-	MTimeBehindNext   float64
+	MTimeBehindNext   CDouble
 	MLapsBehindNext   int32
-	MTimeBehindLeader float64
+	MTimeBehindLeader CDouble
 	MLapsBehindLeader int32
-	MLapStartET       float64
+	MLapStartET       CDouble
 	MPos              TelemVect3
 	MLocalVel         TelemVect3
 	MLocalAccel       TelemVect3
@@ -224,8 +303,8 @@ type VehicleScoringInfoV01 struct {
 	MServerScored     uint8
 	MIndividualPhase  uint8
 	MQualification    int32
-	MTimeIntoLap      float64
-	MEstimatedLapTime float64
+	MTimeIntoLap      CDouble
+	MEstimatedLapTime CDouble
 	MPitGroup         [24]byte
 	MFlag             uint8
 	MUnderYellow      bool
@@ -235,7 +314,7 @@ type VehicleScoringInfoV01 struct {
 	MPitLapDist       float32
 	MBestLapSector1   float32
 	MBestLapSector2   float32
-	MSteamID          uint64
+	MSteamID          CLongLong
 	MVehFilename      [32]byte
 	MAttackMode       int16
 	MFuelFraction     uint8
@@ -244,50 +323,56 @@ type VehicleScoringInfoV01 struct {
 }
 
 // ScoringInfoV01 contains session scoring information
-// NOTE: This struct uses explicit padding to match C++ #pragma pack(4) alignment
-// With pack(4), all fields align to 4-byte boundaries (not their natural alignment)
+// This matches the C++ struct ScoringInfoV01 from InternalsPlugin.hpp
+// Size: 548 bytes
 type ScoringInfoV01 struct {
-	MTrackName       [64]byte // offset 0-63
-	MSession         int32    // offset 64-67 (no padding needed, 64 is 4-byte aligned)
-	MCurrentET       float64  // offset 68-75 (with pack(4), double can start at offset 68)
-	MEndET           float64  // offset 76-83
-	MMaxLaps         int32    // offset 84-87
-	MLapDist         float64  // offset 88-95 (with pack(4), double can start at offset 88)
-	MResultsStream   uintptr  // offset 96-103 (64-bit) or 96-99 (32-bit)
-	MNumVehicles     int32    // offset 104-107 (64-bit) or 100-103 (32-bit)
-	MGamePhase       uint8    // offset 108 (64-bit) or 104 (32-bit)
-	MYellowFlagState int8     // offset 109 (64-bit) or 105 (32-bit)
-	MSectorFlag      [3]int8  // offset 110-112 (64-bit) or 106-108 (32-bit)
-	MStartLight      uint8    // offset 113 (64-bit) or 109 (32-bit)
-	MNumRedLights    uint8    // offset 114 (64-bit) or 110 (32-bit)
-	MInRealtime      bool     // offset 115 (64-bit) or 111 (32-bit)
-	_                [1]byte  // padding to 4-byte boundary
-	MPlayerName      [32]byte // offset 120 (64-bit) or 116 (32-bit) - padded to 4-byte boundary
-	MPlrFileName     [64]byte // offset 152 (64-bit) or 148 (32-bit)
-	MDarkCloud       float64  // offset 216 (64-bit) or 212 (32-bit)
-	MRaining         float64  // offset 224 (64-bit) or 220 (32-bit)
-	MAmbientTemp     float64  // offset 232 (64-bit) or 228 (32-bit)
-	MTrackTemp       float64  // offset 240 (64-bit) or 236 (32-bit)
-	MWind            TelemVect3 // offset 248 (64-bit) or 244 (32-bit) - 3 doubles = 24 bytes
-	MMinPathWetness  float64  // offset 272 (64-bit) or 268 (32-bit)
-	MMaxPathWetness  float64  // offset 280 (64-bit) or 276 (32-bit)
-	MGameMode        uint8    // offset 288 (64-bit) or 284 (32-bit)
-	MIsPasswordProtected bool  // offset 289 (64-bit) or 285 (32-bit)
-	_                [2]byte  // padding to align uint16
-	MServerPort      uint16   // offset 292 (64-bit) or 288 (32-bit)
-	MServerPublicIP  uint32   // offset 294 (64-bit) or 290 (32-bit)
-	MMaxPlayers      int32    // offset 298 (64-bit) or 294 (32-bit)
-	MServerName      [32]byte // offset 302 (64-bit) or 298 (32-bit)
-	MStartET         float32  // offset 334 (64-bit) or 330 (32-bit)
-	_                [4]byte  // padding to align double to 4-byte boundary
-	MAvgPathWetness  float64  // offset 344 (64-bit) or 340 (32-bit)
-	MExpansion       [200]uint8 // offset 352 (64-bit) or 348 (32-bit)
-	MVehicle         uintptr  // offset 552 (64-bit) or 548 (32-bit)
+	MTrackName       [64]byte
+	MSession         int32
+	MCurrentET       CDouble
+	MEndET           CDouble
+	MMaxLaps         int32
+	MLapDist         CDouble
+	MResultsStream   CUintPtr
+	MNumVehicles     int32
+	MGamePhase       uint8
+	MYellowFlagState int8
+	MSectorFlag      [3]int8
+	MStartLight      uint8
+	MNumRedLights    uint8
+	MInRealtime      bool
+	MPlayerName      [32]byte
+	MPlrFileName     [64]byte
+	MDarkCloud       CDouble
+	MRaining         CDouble
+	MAmbientTemp     CDouble
+	MTrackTemp       CDouble
+	MWind            TelemVect3
+	MMinPathWetness  CDouble
+	MMaxPathWetness  CDouble
+	MGameMode        uint8
+	MIsPasswordProtected bool
+	MServerPort      uint16
+	MServerPublicIP  uint32
+	MMaxPlayers      int32
+	MServerName      [32]byte
+	MStartET         float32
+	MAvgPathWetness  CDouble
+	MSessionTimeRemaining       float32
+	MTimeOfDay                  float32
+	MIsFixedSetup               bool
+	MTrackGripLevel             uint8
+	MCloudCoverage              uint8
+	MTrackLimitsStepsPerPenalty uint8
+	MTrackLimitsStepsPerPoint   uint8
+	MExpansion       [187]uint8
+	MVehicle         CUintPtr
 }
 
 // ApplicationStateV01 contains application state information
+// This matches the C++ struct ApplicationStateV01 from InternalsPlugin.hpp
+// Size: 260 bytes
 type ApplicationStateV01 struct {
-	MAppWindow       uintptr // HWND
+	MAppWindow       CUintPtr // HWND
 	MWidth           uint32
 	MHeight          uint32
 	MRefreshRate     uint32
@@ -298,6 +383,8 @@ type ApplicationStateV01 struct {
 }
 
 // SharedMemoryGeneric contains generic shared memory data
+// This matches the C++ struct SharedMemoryGeneric from SharedMemoryInterface.hpp
+// Size: (16 * 4) + 4 + 4 + 260 = 332 bytes
 type SharedMemoryGeneric struct {
 	MEvents    [SME_MAX]uint32 // SharedMemoryEvent array stored as uint32
 	MGameVersion int32
@@ -306,6 +393,8 @@ type SharedMemoryGeneric struct {
 }
 
 // SharedMemoryPathData contains path information
+// This matches the C++ struct SharedMemoryPathData from SharedMemoryInterface.hpp
+// Size: 260 * 5 = 1300 bytes
 type SharedMemoryPathData struct {
 	MUserData        [260]byte // MAX_PATH
 	MCustomVariables [260]byte // MAX_PATH
@@ -315,29 +404,34 @@ type SharedMemoryPathData struct {
 }
 
 // SharedMemoryScoringData contains scoring data
-// NOTE: scoringStreamSize is actually 12 bytes (ubyte[12]) in C++, not uint64
-// This is based on the Python mapping which uses ctypes.c_ubyte*12
+// This matches the C++ struct SharedMemoryScoringData from SharedMemoryInterface.hpp
+// Size: 548 + 12 + (LMU_MAX_VEHICLES * 584) + 65536 = 126832 bytes
 type SharedMemoryScoringData struct {
 	MScoringInfo       ScoringInfoV01
-	MScoringStreamSize [12]byte // Changed from uint64 to [12]byte to match C++ pack(4) layout
-	MVehScoringInfo    [104]VehicleScoringInfoV01 // MUST NOT BE MOVED!
+	MScoringStreamSize [12]byte
+	MVehScoringInfo    [LMU_MAX_VEHICLES]VehicleScoringInfoV01 // MUST NOT BE MOVED!
 	MScoringStream     [65536]byte
 }
 
-// SharedMemoryTelemtryData contains telemetry data for all vehicles
-type SharedMemoryTelemtryData struct {
+// SharedMemoryTelemetryData contains telemetry data for all vehicles
+// This matches the C++ struct SharedMemoryTelemetryData from SharedMemoryInterface.hpp
+// Size: 1 + 1 + 1 + 1 + (LMU_MAX_VEHICLES * 1888) = 196356 bytes
+type SharedMemoryTelemetryData struct {
 	MActiveVehicles   uint8
 	MPlayerVehicleIdx uint8
 	MPlayerHasVehicle bool
-	MTelemInfo        [104]TelemInfoV01
+	_                 [1]byte // Padding to match C++ struct alignment
+	MTelemInfo        [LMU_MAX_VEHICLES]TelemInfoV01
 }
 
 // SharedMemoryObjectOut is the main data structure in shared memory
+// This matches the C++ struct SharedMemoryObjectOut from SharedMemoryInterface.hpp
+// Size: 332 + 1300 + 126832 + 196356 = 324820 bytes
 type SharedMemoryObjectOut struct {
 	MGeneric   SharedMemoryGeneric
 	MPaths     SharedMemoryPathData
 	MScoring   SharedMemoryScoringData
-	MTelemetry SharedMemoryTelemtryData
+	MTelemetry SharedMemoryTelemetryData
 }
 
 // SharedMemoryLayout wraps the shared memory data
@@ -346,7 +440,7 @@ type SharedMemoryLayout struct {
 	MData SharedMemoryObjectOut
 }
 
-// Size returns the size of SharedMemoryLayout in bytes
+// Size returns the size of SharedMemoryLayout in bytes (should be 324820 as of LMU V1.4.2)
 func (s *SharedMemoryLayout) Size() int {
 	return int(unsafe.Sizeof(*s))
 }
