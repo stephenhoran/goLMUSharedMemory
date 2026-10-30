@@ -219,26 +219,6 @@ func (ld *LMUData) IsConnected() bool {
 	return err == nil
 }
 
-// GetTrackName returns the current track name as a string from scoring info
-// Returns an empty string if the track name is not available
-func (ld *LMUData) GetTrackName() (string, error) {
-	scoring, err := ld.GetScoringInfo()
-	if err != nil {
-		return "", err
-	}
-	return CStringToString(scoring.MTrackName[:]), nil
-}
-
-// GetPlayerName returns the current player name as a string from scoring info
-// Returns an empty string if the player name is not available
-func (ld *LMUData) GetPlayerName() (string, error) {
-	scoring, err := ld.GetScoringInfo()
-	if err != nil {
-		return "", err
-	}
-	return CStringToString(scoring.MPlayerName[:]), nil
-}
-
 // GetPlayerVehicleScoring returns the scoring information for the player's vehicle
 // Returns an error if the player vehicle index is out of range or if the data cannot be read
 func (ld *LMUData) GetPlayerVehicleScoring() (*VehicleScoringInfoV01, error) {
