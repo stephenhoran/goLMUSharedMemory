@@ -48,6 +48,11 @@ type (
 	CLongLong [8]byte
 )
 
+// Generic CString type for different fixed-size character arrays used in LMU shared memory
+type CString[T ~[16]byte | ~[18]byte | ~[24]byte | ~[30]byte | ~[31]byte | ~[32]byte | ~[64]byte | ~[260]byte] struct {
+	Data T
+}
+
 // TelemVect3 represents a 3D vector (double precision)
 type TelemVect3 struct {
 	X CDouble
@@ -82,6 +87,16 @@ const (
 	UnknownChampionship IPVehicleChampionship = 0xFF
 )
 
+// TyreCompound represents the type of tire compound used on a wheel
+type TyreCompound uint8
+
+const (
+	Soft TyreCompound = 0x00
+	Medium TyreCompound = 0x01
+	Hard TyreCompound = 0x02
+	Wet TyreCompound = 0x03
+)
+
 const (
 	LMU_MAX_VEHICLES = 104
 )
@@ -108,7 +123,7 @@ type TelemWheelV01 struct {
 	MPressure               CDouble
 	MTemperature            [3]CDouble // left/center/right in Kelvin
 	MWear                   CDouble
-	MTerrainName            [16]byte
+	MTerrainName            CString[[16]byte]
 	MSurfaceType            uint8  // 0=dry, 1=wet, 2=grass, 3=dirt, 4=gravel, 5=rumblestrip, 6=special
 	MFlat                   bool   // whether tire is flat
 	MDetached               bool   // whether wheel is detached
@@ -119,8 +134,8 @@ type TelemWheelV01 struct {
 	MTireCarcassTemperature  CDouble
 	MTireInnerLayerTemperature [3]CDouble
 	MOptimalTemp            float32
-	MCompoundIndex          uint8
-	MCompoundType           uint8
+	MCompoundIndex          TyreCompound
+	MCompoundType           TyreCompound
 	MExpansion              [18]uint8
 }
 
@@ -134,8 +149,8 @@ type TelemInfoV01 struct {
 	MElapsedTime  CDouble
 	MLapNumber    int32
 	MLapStartET   CDouble
-	MVehicleName  [64]byte
-	MTrackName    [64]byte
+	MVehicleName  CString[[64]byte]
+	MTrackName    CString[[64]byte]
 
 	// Position and derivatives
 	MPos         TelemVect3
@@ -203,8 +218,8 @@ type TelemInfoV01 struct {
 	MRearFlapActivated  uint8
 	MRearFlapLegalStatus uint8
 	MIgnitionStarter   uint8
-	MFrontTireCompoundName [18]byte
-	MRearTireCompoundName  [18]byte
+	MFrontTireCompoundName CString[[18]byte]
+	MRearTireCompoundName  CString[[18]byte]
 	MSpeedLimiterAvailable uint8
 	MAntiStallActivated    uint8
 	MUnused                [2]uint8
@@ -250,7 +265,7 @@ type TelemInfoV01 struct {
 	MTimeGapCarBehind         float32
 	MTimeGapPlaceAhead        float32
 	MTimeGapPlaceBehind       float32
-	MVehicleModel             [30]byte
+	MVehicleModel             CString[[30]byte]
 	MVehicleClass             IPVehicleClass
 	MVehicleChampionship      IPVehicleChampionship
 	MExpansion               [20]uint8
@@ -264,8 +279,8 @@ type TelemInfoV01 struct {
 // Size: 584 bytes
 type VehicleScoringInfoV01 struct {
 	MID               int32
-	MDriverName       [32]byte
-	MVehicleName      [64]byte
+	MDriverName       CString[[32]byte]
+	MVehicleName      CString[[64]byte]
 	MTotalLaps        int16
 	MSector           int8
 	MFinishStatus     int8
@@ -286,7 +301,7 @@ type VehicleScoringInfoV01 struct {
 	MControl          int8
 	MInPits           bool
 	MPlace            uint8
-	MVehicleClass     [32]byte
+	MVehicleClass     CString[[32]byte]
 	MTimeBehindNext   CDouble
 	MLapsBehindNext   int32
 	MTimeBehindLeader CDouble
@@ -305,7 +320,7 @@ type VehicleScoringInfoV01 struct {
 	MQualification    int32
 	MTimeIntoLap      CDouble
 	MEstimatedLapTime CDouble
-	MPitGroup         [24]byte
+	MPitGroup         CString[[24]byte]
 	MFlag             uint8
 	MUnderYellow      bool
 	MCountLapFlag     uint8
@@ -315,7 +330,7 @@ type VehicleScoringInfoV01 struct {
 	MBestLapSector1   float32
 	MBestLapSector2   float32
 	MSteamID          CLongLong
-	MVehFilename      [32]byte
+	MVehFilename      CString[[32]byte]
 	MAttackMode       int16
 	MFuelFraction     uint8
 	MDRSState         bool
@@ -326,7 +341,7 @@ type VehicleScoringInfoV01 struct {
 // This matches the C++ struct ScoringInfoV01 from InternalsPlugin.hpp
 // Size: 548 bytes
 type ScoringInfoV01 struct {
-	MTrackName       [64]byte
+	MTrackName       CString[[64]byte]
 	MSession         int32
 	MCurrentET       CDouble
 	MEndET           CDouble
@@ -340,8 +355,8 @@ type ScoringInfoV01 struct {
 	MStartLight      uint8
 	MNumRedLights    uint8
 	MInRealtime      bool
-	MPlayerName      [32]byte
-	MPlrFileName     [64]byte
+	MPlayerName      CString[[32]byte]
+	MPlrFileName     CString[[64]byte]
 	MDarkCloud       CDouble
 	MRaining         CDouble
 	MAmbientTemp     CDouble
@@ -354,7 +369,7 @@ type ScoringInfoV01 struct {
 	MServerPort      uint16
 	MServerPublicIP  uint32
 	MMaxPlayers      int32
-	MServerName      [32]byte
+	MServerName      CString[[32]byte]
 	MStartET         float32
 	MAvgPathWetness  CDouble
 	MSessionTimeRemaining       float32
@@ -378,7 +393,7 @@ type ApplicationStateV01 struct {
 	MRefreshRate     uint32
 	MWindowed        uint32
 	MOptionsLocation uint8
-	MOptionsPage     [31]byte
+	MOptionsPage     CString[[31]byte]
 	MExpansion       [204]uint8
 }
 
@@ -396,11 +411,11 @@ type SharedMemoryGeneric struct {
 // This matches the C++ struct SharedMemoryPathData from SharedMemoryInterface.hpp
 // Size: 260 * 5 = 1300 bytes
 type SharedMemoryPathData struct {
-	MUserData        [260]byte // MAX_PATH
-	MCustomVariables [260]byte // MAX_PATH
-	MStewardResults  [260]byte // MAX_PATH
-	MPlayerProfile   [260]byte // MAX_PATH
-	MPluginsFolder   [260]byte // MAX_PATH
+	MUserData        CString[[260]byte] // MAX_PATH
+	MCustomVariables CString[[260]byte] // MAX_PATH
+	MStewardResults  CString[[260]byte] // MAX_PATH
+	MPlayerProfile   CString[[260]byte] // MAX_PATH
+	MPluginsFolder   CString[[260]byte] // MAX_PATH
 }
 
 // SharedMemoryScoringData contains scoring data
