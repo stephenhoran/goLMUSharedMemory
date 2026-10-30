@@ -148,6 +148,7 @@ func (ld *LMUData) GetAllTelemetry() ([]*TelemInfoV01, error) {
 }
 
 // GetNumVehicles returns the number of active vehicles in the session
+// Returns 0 if the information is not available
 func (ld *LMUData) GetNumVehicles() (int, error) {
 	if err := ld.CheckInit(); err != nil {
 		return 0, err
@@ -161,6 +162,7 @@ func (ld *LMUData) GetNumVehicles() (int, error) {
 }
 
 // GetVehicleScoring returns scoring information for a specific vehicle index
+// Returns an error if the vehicle index is out of range or if the data cannot be read
 func (ld *LMUData) GetVehicleScoring(vehicleIdx int) (*VehicleScoringInfoV01, error) {
 	if err := ld.CheckInit(); err != nil {
 		return nil, err
@@ -180,7 +182,7 @@ func (ld *LMUData) GetVehicleScoring(vehicleIdx int) (*VehicleScoringInfoV01, er
 }
 
 // GetAllVehicleScoring returns scoring information for all vehicles
-// Returns a slice of scoring data for all vehicles in the session
+// Returns a slice of VehicleScoringInfoV01 structure for all vehicles in the session
 func (ld *LMUData) GetAllVehicleScoring() ([]*VehicleScoringInfoV01, error) {
 	if err := ld.CheckInit(); err != nil {
 		return nil, err
