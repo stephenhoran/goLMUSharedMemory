@@ -58,7 +58,8 @@ func (ld *LMUData) ReadTelemetry() (*SharedMemoryLayout, error) {
 		return nil, fmt.Errorf("failed to read telemetry data: %w", err)
 	}
 
-	return data, nil
+	dataCopy := *data
+	return &dataCopy, nil
 }
 
 // GetScoringInfo returns the current scoring information
