@@ -226,8 +226,52 @@ func (ld *LMUData) GetTrackName() (string, error) {
 	return CStringToString(scoring.MTrackName[:]), nil
 }
 
-// Helper function to convert C-style null-terminated byte array to Go string
-// Deprecated: Use CStringToString from lmu_helpers.go instead
-func cStringToString(bytes []byte) string {
-	return CStringToString(bytes)
+// GetPlayerName returns the current player name as a string from scoring info
+// Returns an empty string if the player name is not available
+func (ld *LMUData) GetPlayerName() (string, error) {
+	scoring, err := ld.GetScoringInfo()
+	if err != nil {
+		return "", err
+	}
+	return CStringToString(scoring.MPlayerName[:]), nil
+}
+
+// GetPlayerVehicleScoring returns the scoring information for the player's vehicle
+// Returns an error if the player vehicle index is out of range or if the data cannot be read
+func (ld *LMUData) GetPlayerVehicleScoring() (*VehicleScoringInfoV01, error) {
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
+	}
+
+	data, err := ld.ReadTelemetry()
+	if err != nil {
+		return nil, err
+	}
+
+	playerIdx := int(data.MData.MTelemetry.MPlayerVehicleIdx)
+	if playerIdx < 0 || playerIdx >= LMU_MAX_VEHICLES {
+		return nil, fmt.Errorf("player vehicle index out of range: %d", playerIdx)
+	}
+
+	return &data.MData.MScoring.MVehScoringInfo[playerIdx], nil
+}
+
+// GetPlayerVehicleIndex returns the index of the player's vehicle
+// Returns an error if the player vehicle index is out of range or if the data cannot be read
+func (ld *LMUData) GetPlayerVehicleIndex() (int, error) {
+	if err := ld.CheckInit(); err != nil {
+		return -1, err
+	}
+
+	data, err := ld.ReadTelemetry()
+	if err != nil {
+		return -1, err
+	}
+
+	playerIdx := int(data.MData.MTelemetry.MPlayerVehicleIdx)
+	if playerIdx < 0 || playerIdx >= LMU_MAX_VEHICLES {
+		return -1, fmt.Errorf("player vehicle index out of range: %d", playerIdx)
+	}
+
+	return playerIdx, nil
 }
