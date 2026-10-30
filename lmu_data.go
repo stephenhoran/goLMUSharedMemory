@@ -89,9 +89,9 @@ func (ld *LMUData) GetPlayerTelemetry() (*TelemInfoV01, error) {
 		return nil, err
 	}
 
-	playerIdx := int(data.MData.MTelemetry.MPlayerVehicleIdx)
-	if playerIdx < 0 || playerIdx >= LMU_MAX_VEHICLES {
-		return nil, fmt.Errorf("player vehicle index out of range: %d", playerIdx)
+	playerIdx, err := ld.GetPlayerVehicleIndex()
+	if err != nil {
+		return nil, err
 	}
 
 	return &data.MData.MTelemetry.MTelemInfo[playerIdx], nil
@@ -251,9 +251,9 @@ func (ld *LMUData) GetPlayerVehicleScoring() (*VehicleScoringInfoV01, error) {
 		return nil, err
 	}
 
-	playerIdx := int(data.MData.MTelemetry.MPlayerVehicleIdx)
-	if playerIdx < 0 || playerIdx >= LMU_MAX_VEHICLES {
-		return nil, fmt.Errorf("player vehicle index out of range: %d", playerIdx)
+	playerIdx, err := ld.GetPlayerVehicleIndex()
+	if err != nil {
+		return nil, err
 	}
 
 	return &data.MData.MScoring.MVehScoringInfo[playerIdx], nil
