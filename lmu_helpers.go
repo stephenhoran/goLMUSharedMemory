@@ -1,95 +1,89 @@
 package goLMUSharedMemory
 
 import (
-	"fmt"
-	"strings"
+	"unsafe"
 )
 
-// CStringToString converts a C-style null-terminated byte array to a Go string
-func CStringToString(bytes []byte) string {
-	for i, b := range bytes {
-		if b == 0 {
-			return string(bytes[:i])
-		}
-	}
-	return string(bytes)
+// CString.ToString converts a CString custom type to a Go string
+func (c *CString[T]) ToString() string {
+    b := unsafe.Slice((*byte)(unsafe.Pointer(&c.Data)), len(c.Data))
+    for i, ch := range b {
+        if ch == 0 {
+            return string(b[:i])
+        }
+    }
+    return string(b)
 }
 
-// GetTireCompoundName returns a human-readable tire compound name from the raw name bytes and index
-// Priority: Checks name string first (more reliable), then falls back to index mapping
-// Mapping: 0=Mediums, 1=Softs, 2=Hards, 3=Wets (but name is preferred)
-func GetTireCompoundName(nameBytes []byte, index uint8) string {
-	rawName := CStringToString(nameBytes)
-	nameLower := strings.ToLower(strings.TrimSpace(rawName))
-
-	// Debug: If name contains "dium", it's likely "Mediums" truncated
-	// Check for partial matches that might indicate truncation
-	if strings.HasPrefix(nameLower, "dium") || strings.HasSuffix(nameLower, "dium") {
-		return "Mediums"
+// CDouble.ToFloat64 converts a CDouble custom type (8 bytes) to a Go float64
+func (c *CDouble) ToFloat64() float64 {
+	if unsafe.Sizeof(c) < 8 {
+		return 0
 	}
-	if strings.HasPrefix(nameLower, "edium") || strings.Contains(nameLower, "edium") {
-		return "Mediums"
-	}
-	if strings.HasPrefix(nameLower, "ium") && !strings.Contains(nameLower, "soft") {
-		return "Mediums"
-	}
-
-	// Check for tire compound keywords - check "medium" first to avoid matching "soft" incorrectly
-	if strings.Contains(nameLower, "medium") {
-		return "Mediums"
-	}
-	// Check if name starts with "soft" to avoid false matches in words containing "soft"
-	if strings.HasPrefix(nameLower, "soft") || (strings.Contains(nameLower, "soft") && !strings.Contains(nameLower, "medium")) {
-		return "Softs"
-	}
-	if strings.Contains(nameLower, "wet") {
-		return "Wets"
-	}
-	if strings.Contains(nameLower, "hard") {
-		return "Hards"
-	}
-
-	// If name exists but doesn't match known patterns, use it as-is (might be custom compound name)
-	// But if it looks truncated (too short), prefer index
-	if len(rawName) > 0 {
-		trimmed := strings.TrimSpace(rawName)
-		if len(trimmed) > 3 { // Only use if it's a reasonable length
-			return trimmed
-		}
-	}
-
-	// If no name or name doesn't match, try to use the index
-	// LMU mapping: 0=mediums, 1=softs (verified from debug output)
-	// Note: Different games may use different mappings, but LMU uses 0 for mediums
-	if index <= 10 {
-		switch index {
-		case 0:
-			return "Mediums"
-		case 1:
-			return "Softs"
-		case 2:
-			return "Hards"
-		case 3:
-			return "Wets"
-		default:
-			// Index is in range but not a standard value
-			return fmt.Sprintf("Idx:%d", index)
-		}
-	}
-
-	// No valid data
-	return "N/A"
+	return *(*float64)(unsafe.Pointer(c))
 }
 
-// GetTireCompoundNameFromTelem is a convenience function that extracts tire compound name from TelemInfoV01
-// for either front or rear tires
-func GetTireCompoundNameFromTelem(telem *TelemInfoV01, isFront bool) string {
-	if telem == nil {
+// CLongLong.ToUint64 converts a CLongLong custom type (8 bytes) to a Go uint64
+func (c *CLongLong) ToUint64() uint64 {
+	if unsafe.Sizeof(c) < 8 {
+		return 0
+	}
+	return *(*uint64)(unsafe.Pointer(c))
+}
+
+// IPVehicleClass.ToString converts an IPVehicleClass custom type to a human-readable string
+func (c *IPVehicleClass) ToString() string {
+	switch *c {
+	case Hypercar:
+		return "Hypercar"
+	case LMP2_ELMS:
+		return "LMP2 ELMS"
+	case LMP2:
+		return "LMP2"
+	case LMP3:
+		return "LMP3"
+	case GTE:
+		return "GTE"
+	case GT3:
+		return "GT3"
+	case PaceCar:
+		return "Pace Car"
+	default:
 		return "N/A"
 	}
-	if isFront {
-		return GetTireCompoundName(telem.MFrontTireCompoundName[:], telem.MFrontTireCompoundIndex)
-	}
-	return GetTireCompoundName(telem.MRearTireCompoundName[:], telem.MRearTireCompoundIndex)
 }
 
+func (c *IPVehicleChampionship) ToString() string {
+	switch *c {
+	case WEC_2023:
+		return "WEC 2023"
+	case WEC_2024:
+		return "WEC 2024"
+	case WEC_2025:
+		return "WEC 2025"
+	case WEC_2026:
+		return "WEC 2026"
+	case ELMS_2025:
+		return "ELMS 2025"
+	case ELMS_2026:
+		return "ELMS 2026"
+	default:
+		return "N/A"
+	}
+}
+
+// TyreCompound.ToString returns a human-readable tire compound name from the compound index of a wheel
+func (t *TyreCompound) ToString() string {
+	switch *t {
+	case Soft:
+		return "Soft"
+	case Medium:
+		return "Medium"
+	case Hard:
+		return "Hard"
+	case Wet:
+		return "Wet"
+	default:
+		return "N/A"
+	}
+}
