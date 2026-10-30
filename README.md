@@ -1,7 +1,7 @@
 # goLMUSharedMemory
 
 **⚠️ Alpha Release** - This library is in active development and may have breaking changes. Use with caution.
-* Currently supports LMU v1.2.1.0
+* Currently supports LMU v1.4.2
 
 Go library for accessing Le Mans Ultimate's built-in shared memory interface to read telemetry data.
 
@@ -9,7 +9,7 @@ Go library for accessing Le Mans Ultimate's built-in shared memory interface to 
 
 This package provides a Go interface to read telemetry data from Le Mans Ultimate (LMU) via Windows shared memory. It replicates the functionality of the Python [pyLMUSharedMemory](https://github.com/s-victor/pyLMUSharedMemory) package.
 
-The library handles the complex memory alignment differences between Go's default struct layout and C++'s `#pragma pack(4)` alignment used by LMU, ensuring accurate data reading through manual offset calculations and robust validation.
+The library handles the complex memory alignment differences between Go's default struct layout and C++'s `#pragma pack(4)` alignment used by LMU, ensuring accurate data reading through the use of custom variable types and size validation.
 
 ## Acknowledgement
 
@@ -26,7 +26,7 @@ This library is based on:
 - Access environmental data (track temperature, weather, time of day)
 - Helper functions for tire compound detection (Softs, Mediums, Hards, Wets)
 - Thread-safe shared memory access
-- Robust offset calculation with validation to prevent data corruption
+- Tested struct size matching to ensure correct unpacking
 - Clean, idiomatic Go API
 
 ## Requirements
@@ -67,40 +67,48 @@ func main() {
         return
     }
     
-    trackName, _ := lmu.GetTrackName()
-    fmt.Printf("Track: %s\n", trackName)
-    fmt.Printf("Session Time: %.2f s\n", scoring.MCurrentET)
+    fmt.Printf("Track: %s\n", scoring.MTrackName.ToString())
+    fmt.Printf("Session Time: %.2f s\n", scoring.MCurrentET.ToFloat64())
 
     // Access player vehicle telemetry
-    playerTelem := lmu.GetPlayerTelemetry()
+    playerTelem, err := lmu.GetPlayerTelemetry()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
     if playerTelem == nil {
         fmt.Printf("Player telemetry not available\n")
         return
     }
     
-    speed := playerTelem.MLocalVel.Z
+    speed := playerTelem.MLocalVel.Z.ToFloat64()
     if speed < 0 {
         speed = -speed
     }
     fmt.Printf("Speed: %.1f km/h\n", speed*3.6)
-    fmt.Printf("RPM: %.0f\n", playerTelem.MEngineRPM)
+    fmt.Printf("RPM: %.0f\n", playerTelem.MEngineRPM.ToFloat64())
     fmt.Printf("Gear: %d\n", playerTelem.MGear)
     
-    // Get tire compounds using helper function
-    frontTires := goLMUSharedMemory.GetTireCompoundNameFromTelem(playerTelem, true)
-    rearTires := goLMUSharedMemory.GetTireCompoundNameFromTelem(playerTelem, false)
-    fmt.Printf("Tires: Front=%s, Rear=%s\n", frontTires, rearTires)
+    fmt.Printf("Tires: FL=%s FR=%s RL=%s RR=%s\n", 
+        playerTelem.MWheel[0].MCompoundIndex.ToString(), playerTelem.MWheel[1].MCompoundIndex.ToString(),
+        playerTelem.MWheel[2].MCompoundIndex.ToString(), playerTelem.MWheel[3].MCompoundIndex.ToString())
+
+    fmt.Printf("Vehicle Model: %s\n", playerTelem.MVehicleModel.ToString())
+    fmt.Printf("Vehicle Championship: %s\n", playerTelem.MVehicleChampionship.ToString())
 
     // Access other vehicles' data
-    allVehicles := lmu.GetAllVehicleScoring()
+    allVehicles, err := lmu.GetAllVehicleScoring()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
     if allVehicles != nil {
         fmt.Printf("\nTotal vehicles: %d\n", len(allVehicles))
-        // Display top 3 positions
+        // Display first 3 cars in list
         for i := 0; i < 3 && i < len(allVehicles); i++ {
             v := allVehicles[i]
-            driverName := goLMUSharedMemory.CStringToString(v.MDriverName[:])
-            vehicleName := goLMUSharedMemory.CStringToString(v.MVehicleName[:])
-            fmt.Printf("Position %d: %s (%s)\n", v.MPlace, driverName, vehicleName)
+            fmt.Printf("Position %d: %s (%s)\n", 
+				v.MPlace, v.MDriverName.ToString(), v.MVehicleName.ToString())
         }
     }
 }
@@ -125,16 +133,24 @@ func main() {
         return
     }
     defer lmu.Close()
-
+    
     // Get all vehicle telemetry
-    allTelemetry := lmu.GetAllTelemetry()
+    allTelemetry, err := lmu.GetAllTelemetry()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
     if allTelemetry == nil {
         fmt.Println("No telemetry data available")
         return
     }
 
     // Get all vehicle scoring for positions
-    allScoring := lmu.GetAllVehicleScoring()
+    allScoring, err := lmu.GetAllVehicleScoring()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
     
     for _, telem := range allTelemetry {
         // Find corresponding scoring info
@@ -150,14 +166,10 @@ func main() {
             continue
         }
         
-        driverName := goLMUSharedMemory.CStringToString(scoring.MDriverName[:])
-        
-        // Get tire compounds per wheel (front/rear)
-        frontTires := goLMUSharedMemory.GetTireCompoundNameFromTelem(telem, true)
-        rearTires := goLMUSharedMemory.GetTireCompoundNameFromTelem(telem, false)
-        
-        fmt.Printf("Pos %d: %s - FL/FR: %s, RL/RR: %s\n",
-            scoring.MPlace, driverName, frontTires, rearTires)
+        fmt.Printf("Pos %d: %s - FL: %s, FR: %s, RL: %s, RR: %s\n",
+            scoring.MPlace, scoring.MDriverName.ToString(), 
+            telem.MWheel[0].MCompoundIndex.ToString(), telem.MWheel[1].MCompoundIndex.ToString(), 
+            telem.MWheel[2].MCompoundIndex.ToString(), telem.MWheel[3].MCompoundIndex.ToString())
     }
 }
 ```
@@ -181,7 +193,11 @@ func main() {
     }
     defer lmu.Close()
 
-    allVehicles := lmu.GetAllVehicleScoring()
+    allVehicles, err := lmu.GetAllVehicleScoring()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
     if allVehicles == nil {
         fmt.Println("No vehicles data available")
         return
@@ -192,20 +208,21 @@ func main() {
         return allVehicles[i].MPlace < allVehicles[j].MPlace
     })
 
-    fmt.Printf("%-4s %-25s %-12s %-12s %-12s\n",
-        "Pos", "Driver", "Best Lap", "Last Lap", "Gap to Leader")
+    fmt.Printf("%-4s %-25s %-50s %-12s %-12s %-12s\n",
+        "Pos", "Driver", "Vehicle", "Best Lap", "Last Lap", "Gap to Leader")
     
     var leaderBestLap float64
     for i, v := range allVehicles {
         if i == 0 {
-            leaderBestLap = v.MBestLapTime
+            leaderBestLap = v.MBestLapTime.ToFloat64()
         }
         
-        driverName := goLMUSharedMemory.CStringToString(v.MDriverName[:])
-        gap := v.MBestLapTime - leaderBestLap
+        gap := v.MBestLapTime.ToFloat64() - leaderBestLap
         
-        fmt.Printf("%-4d %-25s %-12.3f %-12.3f %-12.3f\n",
-            v.MPlace, driverName, v.MBestLapTime, v.MLastLapTime, gap)
+        fmt.Printf("%-4d %-25s %-50s %-12.3f %-12.3f %-12.3f\n",
+            v.MPlace, v.MDriverName.ToString(), 
+            v.MVehicleName.ToString(), v.MBestLapTime.ToFloat64(), 
+            v.MLastLapTime.ToFloat64(), gap)
     }
 }
 ```
@@ -238,12 +255,20 @@ func main() {
             break
         }
 
-        playerTelem := lmu.GetPlayerTelemetry()
+        playerTelem, err := lmu.GetPlayerTelemetry()
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            continue
+        }
         if playerTelem == nil {
             continue
         }
 
-        playerScoring := lmu.GetVehicleScoring(int(playerTelem.MID))
+        playerScoring, err := lmu.GetPlayerVehicleScoring()
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            continue
+        }
         if playerScoring == nil {
             continue
         }
@@ -251,24 +276,27 @@ func main() {
         // Clear screen (Windows)
         fmt.Print("\033[2J\033[H")
 
-        speed := playerTelem.MLocalVel.Z
+        speed := playerTelem.MLocalVel.Z.ToFloat64()
         if speed < 0 {
             speed = -speed
         }
 
         fmt.Printf("=== Player Telemetry ===\n")
+        fmt.Printf("Vehicle: %s\n", playerTelem.MVehicleName.ToString())
+        fmt.Printf("Driver: %s\n", playerScoring.MDriverName.ToString())
         fmt.Printf("Speed: %.1f km/h\n", speed*3.6)
-        fmt.Printf("RPM: %.0f / %.0f\n", playerTelem.MEngineRPM, playerTelem.MEngineMaxRPM)
+        fmt.Printf("RPM: %.0f / %.0f\n", playerTelem.MEngineRPM.ToFloat64(), playerTelem.MEngineMaxRPM.ToFloat64())
         fmt.Printf("Gear: %d / %d\n", playerTelem.MGear, playerTelem.MMaxGears)
-        fmt.Printf("Fuel: %.1f / %.1f L\n", playerTelem.MFuel, playerTelem.MFuelCapacity)
+        fmt.Printf("Fuel: %.1f / %.1f L\n", playerTelem.MFuel.ToFloat64(), playerTelem.MFuelCapacity.ToFloat64())
+        fmt.Printf("VE: %.1f %%\n", playerTelem.MVirtualEnergy*100)
         fmt.Printf("Lap: %d\n", playerTelem.MLapNumber)
-        fmt.Printf("Best Lap: %.3f\n", playerScoring.MBestLapTime)
-        fmt.Printf("Last Lap: %.3f\n", playerScoring.MLastLapTime)
+        fmt.Printf("Best Lap: %.3f\n", playerScoring.MBestLapTime.ToFloat64())
+        fmt.Printf("Last Lap: %.3f\n", playerScoring.MLastLapTime.ToFloat64())
         
         // Tire compounds
-        frontTires := goLMUSharedMemory.GetTireCompoundNameFromTelem(playerTelem, true)
-        rearTires := goLMUSharedMemory.GetTireCompoundNameFromTelem(playerTelem, false)
-        fmt.Printf("Tires: Front=%s, Rear=%s\n", frontTires, rearTires)
+        fmt.Printf("Tires: FL=%s FR=%s, RL=%s RR=%s\n", 
+			playerTelem.MWheel[0].MCompoundIndex.ToString(), playerTelem.MWheel[1].MCompoundIndex.ToString(),
+			playerTelem.MWheel[2].MCompoundIndex.ToString(), playerTelem.MWheel[3].MCompoundIndex.ToString())
     }
 }
 ```
@@ -281,7 +309,7 @@ func main() {
 func OpenLMUData() (*LMUData, error)
 ```
 
-Opens a connection to LMU shared memory using the default name (`Local\LMUSharedMem`). Returns an error if LMU is not running or shared memory is not available.
+Opens a connection to LMU shared memory using the default name (`LMU_Data`). Returns an error if LMU is not running or shared memory is not available.
 
 ```go
 func OpenLMUDataWithName(name string) (*LMUData, error)
@@ -295,27 +323,15 @@ Opens a connection to LMU shared memory with a custom name. Useful if LMU uses a
 func (ld *LMUData) ReadTelemetry() (*SharedMemoryLayout, error)
 ```
 
-Reads the complete shared memory layout structure. Note: This returns the raw structure and may have alignment issues. Prefer using the specific getter functions below.
+Reads the complete shared memory layout structure.
 
 ```go
 func (ld *LMUData) GetScoringInfo() (*ScoringInfoV01, error)
 ```
 
-Returns the session scoring information (track, session type, timing, weather, etc.). Uses validated offset calculation to ensure correct data reading.
+Returns the session scoring information (track, session type, timing, weather, etc.).
 
 ### Vehicle Data Access
-
-```go
-func (ld *LMUData) GetTrackName() (string, error)
-```
-
-Returns the current track name as a string.
-
-```go
-func (ld *LMUData) GetLayoutName() (string, error)
-```
-
-Returns the current layout name as a string.
 
 ```go
 func (ld *LMUData) IsConnected() bool
@@ -330,10 +346,10 @@ func (ld *LMUData) GetTelemetry(vehicleIdx int) (*TelemInfoV01, error)
 Returns telemetry data for a specific vehicle by index (0-103). Returns `nil` if the vehicle index is invalid or the vehicle is not active.
 
 ```go
-func (ld *LMUData) GetPlayerTelemetry() (*TelemInfoV01)
+func (ld *LMUData) GetPlayerTelemetry() (*TelemInfoV01, error)
 ```
 
-Returns telemetry data for the player's vehicle. Returns `nil` if player telemetry is not available. Note: This function does not return an error; check for `nil` return value instead.
+Returns telemetry data for the player's vehicle. Returns an error if player telemetry is not available.
 
 ```go
 func (ld *LMUData) GetAllTelemetry() ([]*TelemInfoV01, error)
@@ -360,6 +376,18 @@ func (ld *LMUData) GetAllVehicleScoring() ([]*VehicleScoringInfoV01, error)
 Returns scoring information for all vehicles in the session. The slice may be empty if no vehicles are active.
 
 ```go
+func (ld *LMUData) GetPlayerVehicleScoring() (*VehicleScoringInfoV01, error)
+```
+
+Returns scoring information for the player's vehicle (position, lap times, sector times, etc.). Returns an error if player vehicle scoring is not available.
+
+```go
+func (ld *LMUData) GetPlayerVehicleIndex() (int, error)
+```
+
+Returns vehicle index for the player's vehicle. Returns an error if the vehicle index is out of range.
+
+```go
 func (ld *LMUData) Close() error
 ```
 
@@ -368,34 +396,46 @@ Closes the connection to shared memory. Always call this when done to release sy
 ### Helper Functions
 
 ```go
-func CStringToString(bytes []byte) string
+func (c *CString[T]) ToString() string
 ```
 
-Converts a C-style null-terminated byte array to a Go string. This is useful for converting driver names, vehicle names, track names, and other string fields from the shared memory structures.
+Converts a custom type CString variable into a Go string. This is useful for converting driver names, vehicle names, track names, and other string fields from the shared memory structures.
 
 ```go
-func GetTireCompoundName(nameBytes []byte, index uint8) string
+func (c *CDouble) ToFloat64() float64
 ```
 
-Returns a human-readable tire compound name from the raw name bytes and index. Priority is given to parsing the name string first (checking for "medium", "soft", "wet", "hard" keywords), then falls back to index mapping if the name is not available or invalid.
-
-**Tire Index Mapping:**
-- `0` = Mediums
-- `1` = Softs
-- `2` = Hards
-- `3` = Wets
-
-Returns "N/A" if no valid compound data is found.
+Converts a custom type CDouble variable into a Go float64.
 
 ```go
-func GetTireCompoundNameFromTelem(telem *TelemInfoV01, isFront bool) string
+func (c *CLongLong) ToUint64() uint64
 ```
 
-Convenience function that extracts tire compound name from `TelemInfoV01` for either front (`isFront=true`) or rear (`isFront=false`) tires. Returns "N/A" if telemetry is `nil`.
+Converts a custom type CLongLong variable into a Go uint64.
 
-**Note:** In LMU, tire compounds are per axle:
-- Front Left (FL) and Front Right (FR) share the same compound (use `isFront=true`)
-- Rear Left (RL) and Rear Right (RR) share the same compound (use `isFront=false`)
+```go
+func (c *IPVehicleClass) ToString() string
+```
+
+Converts a custom type IPVehicleClass into a human readable Go string.
+
+Returns "N/A" if no valid class is found.
+
+```go
+func (c *IPVehicleChampionship) ToString() string
+```
+
+Converts a custom type IPVehicleChampionship into a human readable Go string.
+
+Returns "N/A" if no valid championship is found.
+
+```go
+func (t *TyreCompound) ToString() string
+```
+
+Converts a custom type TyreCompound into a human readable Go string.
+
+Returns "N/A" if no valid compound is found.
 
 ## Data Structures
 
@@ -415,6 +455,20 @@ Contains session-related information:
 - `MRainDensity`: Rain density (0.0 - 1.0)
 - `MWindSpeed`: Wind speed in m/s
 - Flags: `MYellowFlagState`, `MRedFlagState`, `MSafetyCarState`
+- `MAvgPathWetness`: Average track wetness (0.0 - 1.0)
+- `MSessionTimeRemaining`: Seconds until the end of the current session
+- `MTimeOfDay`: Time of day in session
+- `MIsFixedSetup`: Is the current session forcing fixed setups
+- `MTrackGripLevel`: Track grip level index (0-4)
+- `MCloudCoverage`: Average cloud coverage across the track (0.0 - 1.0)
+- `MTrackLimitsStepsPerPenalty`: Amount of track limits steps allowed before a penalty
+- `MTrackLimitsStepsPerPoint`: Amount of track limits steps per track limit point
+
+**Track Grip Level Mapping:**
+- `0` = Green
+- `1` = Medium Grip
+- `2` = High Grip
+- `3` = Saturated Grip
 
 ### TelemInfoV01
 
@@ -424,16 +478,18 @@ Contains detailed vehicle telemetry data for any vehicle:
 - Transmission: `MGear`, `MMaxGears`, `MClutchRPM`
 - Driver inputs: `MUnfilteredThrottle`, `MUnfilteredBrake`, `MUnfilteredSteering`, `MUnfilteredClutch`
 - Filtered inputs: `MFilteredThrottle`, `MFilteredBrake`, `MFilteredSteering`, `MFilteredClutch`
-- Fuel: `MFuel`, `MFuelCapacity`
-- Wheels: Array of `MWheel[4]` with detailed data (temperatures, pressures, wear, brake temp, etc.)
+- Fuel and energy: `MFuel`, `MFuelCapacity`, `MVirtualEnergy`, `MStateOfCharge`  
+- Wheels: Array of `MWheel[4]` with detailed data (temperatures, pressures, wear, brake temp, compound index, etc.)
 - **Tire Compounds**: 
   - `MFrontTireCompoundName`: Front tire compound name (byte array)
   - `MFrontTireCompoundIndex`: Front tire compound index (0-3)
   - `MRearTireCompoundName`: Rear tire compound name (byte array)
   - `MRearTireCompoundIndex`: Rear tire compound index (0-3)
-- Timing: `MLapNumber`, `MLapStartET`, `MElapsedTime`, `MDeltaBest`
-- Vehicle state: `MHeadlights`, `MOverheating`, `MDetached`, etc.
+- Timing: `MLapNumber`, `MLapStartET`, `MElapsedTime`, `MDeltaBest`, `MLapInvalidated`, `MTimeGapCarAhead`, `MTimeGapCarBehind`, `MTimeGapPlaceAhead`, `MTimeGapPlaceBehind` 
+- Vehicle state: `MHeadlights`, `MOverheating`, `MDetached`, `MWiperState`, `MSpeedLimiterActive`, etc.
+- In-car adjustments: `MABSActive`, `MTCActive`, , `MTC`, `MTCMax`, `MTCSlip`, `MTCSlipMax`, `MTCCut`, `MTCCutMax`, `MABS`, `MABSMax`, `MMotorMap`, `MMotorMapMax`, `MMigration`, `MMigrationMax`, `MFrontAntiSway`, `MFrontAntiSwayMax`, `MRearAntiSway`, `MRearAntiSwayMax`,
 - Vehicle identification: `MID` (0-103)
+- Vehicle description: `MVehicleMode` (byte array), `MVehicleClass`, `MVehicleChampionship` 
 
 ### VehicleScoringInfoV01
 
@@ -455,15 +511,15 @@ Contains data for a single wheel (FL, FR, RL, RR):
 - `Pressure`: Tire pressure in bar
 - `Temperature`: Tire temperatures (left, center, right) in Celsius
 - `Wear`: Tire wear (0.0 = new, 1.0 = worn)
+- `Compound`: Tire compound index and type
 
-## Memory Alignment and Offset Calculation
+## Memory Alignment
 
-This library implements robust memory offset calculation to handle the differences between Go's default struct alignment and C++'s `#pragma pack(4)` alignment used by LMU. The implementation:
+This library implements robust struct unpacking to handle the C++'s `#pragma pack(4)` alignment used by LMU, by avoiding the use of any Go native 64-bit type, which would force an 8-byte alignment, and incorrectly assign values to the respective fields. 
 
-- Uses manual byte-based offset calculations instead of `unsafe.Offsetof()`
-- Validates offsets by checking data integrity (reasonable ranges, valid strings, etc.)
-- Employs scoring-based search algorithms to find correct data locations
-- References the Python `pyLMUSharedMemory` library for verified struct sizes
+By making sure that any value above 32-bits is unpacked to an array of bytes, which does not force an 8-byte struct alignment in Go, and then converted after unpacked, this guarantees that data is correctly unpacked as long as the native LMU shared memory organization does not change.
+
+All struct size calculations were done with the help and cross validation of the Python `pyLMUSharedMemory` library.
 
 This ensures accurate data reading and prevents crashes from invalid memory access.
 
@@ -473,7 +529,7 @@ This package is currently Windows-specific as it uses Windows shared memory APIs
 
 ## Thread Safety
 
-The shared memory reading operations are safe to call from multiple goroutines. However, note that the shared memory data itself may change between reads, so you should read data atomically if you need consistency across multiple fields.
+The shared memory reading operations are safe to call from multiple goroutines. The shared memory data itself changes over time, however this is only a concern when reading raw data directly, as the ReadTelemetry() method already returns an atomic copy of the data when called.
 
 ## Troubleshooting
 
