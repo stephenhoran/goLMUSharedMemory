@@ -41,11 +41,18 @@ func (ld *LMUData) Close() error {
 	return nil
 }
 
+func (ld *LMUData) CheckInit() error {
+	if ld.memory == nil {
+		return fmt.Errorf("LMU data is not initialized")
+	}
+	return nil
+}
+
 // ReadTelemetry reads the current telemetry data from shared memory
 // Returns the complete SharedMemoryLayout structure
 func (ld *LMUData) ReadTelemetry() (*SharedMemoryLayout, error) {
-	if ld.memory == nil {
-		return nil, fmt.Errorf("LMU data is not initialized")
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
 	}
 
 	data, err := ld.memory.ReadData()
@@ -131,9 +138,8 @@ func (ld *LMUData) GetScoringInfo() (*ScoringInfoV01, error) {
 // GetPlayerTelemetry returns the telemetry data for the player vehicle
 // Returns a copy of the telemetry data to ensure it remains valid
 func (ld *LMUData) GetPlayerTelemetry() (*TelemInfoV01, error) {
-	rawData := ld.memory.GetRawData()
-	if len(rawData) < 10000 {
-		return nil, fmt.Errorf("shared memory data is too small")
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
 	}
 
 	// Find telemetry section offset
@@ -184,6 +190,10 @@ func (ld *LMUData) GetPlayerTelemetry() (*TelemInfoV01, error) {
 // GetTelemetry returns telemetry data for a specific vehicle index
 // Returns a copy of the telemetry data to ensure it remains valid
 func (ld *LMUData) GetTelemetry(vehicleIdx int) (*TelemInfoV01, error) {
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
+	}
+
 	if vehicleIdx < 0 || vehicleIdx >= 104 {
 		return nil, fmt.Errorf("vehicle index out of range: %d", vehicleIdx)
 	}
@@ -377,9 +387,8 @@ func (ld *LMUData) findTelemetryOffset() (uintptr, error) {
 // Returns a slice of telemetry data, one per active vehicle (up to activeVehicles count)
 // Returns copies of the telemetry data to ensure they remain valid
 func (ld *LMUData) GetAllTelemetry() ([]*TelemInfoV01, error) {
-	rawData := ld.memory.GetRawData()
-	if len(rawData) < 10000 {
-		return nil, fmt.Errorf("shared memory data is too small")
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
 	}
 
 	// Find telemetry section offset
@@ -440,6 +449,10 @@ func (ld *LMUData) GetAllTelemetry() ([]*TelemInfoV01, error) {
 
 // GetNumVehicles returns the number of active vehicles in the session
 func (ld *LMUData) GetNumVehicles() (int, error) {
+	if err := ld.CheckInit(); err != nil {
+		return 0, err
+	}
+
 	data, err := ld.ReadTelemetry()
 	if err != nil {
 		return 0, err
@@ -827,6 +840,10 @@ func (ld *LMUData) findVehicleArrayOffset() (uintptr, error) {
 
 // GetVehicleScoring returns scoring information for a specific vehicle index
 func (ld *LMUData) GetVehicleScoring(vehicleIdx int) (*VehicleScoringInfoV01, error) {
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
+	}
+
 	if vehicleIdx < 0 || vehicleIdx >= 104 {
 		return nil, fmt.Errorf("vehicle index out of range: %d", vehicleIdx)
 	}
@@ -858,7 +875,10 @@ func (ld *LMUData) GetVehicleScoring(vehicleIdx int) (*VehicleScoringInfoV01, er
 // GetAllVehicleScoring returns scoring information for all vehicles
 // Returns a slice of scoring data for all vehicles in the session
 func (ld *LMUData) GetAllVehicleScoring() ([]*VehicleScoringInfoV01, error) {
-	scoring, err := ld.GetScoringInfo()
+	if err := ld.CheckInit(); err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
